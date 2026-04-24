@@ -390,10 +390,21 @@
         }
     }
 
+    function normalizeAppType(rawType) {
+        if (!rawType) return '-';
+        const t = String(rawType).trim();
+        const lower = t.toLowerCase();
+        if (lower === 'sertifikat laik fungsi existing') return 'Sertifikat Laik Fungsi - Eksisting';
+        if (lower === 'perpanjangan slf') return 'Sertifikat Laik Fungsi - Perpanjangan';
+        if (lower === 'sertifikat laik fungsi baru') return 'Sertifikat Laik Fungsi';
+        return t;
+    }
+
     function getExcelAppType(row) {
         if (!row) return '-';
         const key = Object.keys(row).find(k => k.toLowerCase().includes('jenis permohonan'));
-        return key && row[key] ? row[key] : '-';
+        const val = key && row[key] ? row[key] : '-';
+        return normalizeAppType(val);
     }
 
     function normalizeStatus(val) {
@@ -426,7 +437,8 @@
     }
 
     function getJsonAppType(item) {
-        return item.application_type_name || '-';
+        const val = item.application_type_name || '-';
+        return normalizeAppType(val);
     }
 
     function getJsonStatus(item) {
