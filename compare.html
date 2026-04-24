@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Comparison</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --text-color: #f8fafc;
+            --card-bg: #1e293b;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --success: #10b981;
+            --error: #ef4444;
+            --warning: #f59e0b;
+        }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 2rem;
+            line-height: 1.5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(to right, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            margin-bottom: 1.5rem;
+        }
+        .flex { display: flex; gap: 1rem; }
+        .flex-col { flex-direction: column; }
+        .btn {
+            background-color: var(--primary);
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+        .btn:hover { background-color: var(--primary-hover); }
+        .btn:disabled { background-color: #475569; cursor: not-allowed; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+        th, td {
+            text-align: left;
+            padding: 0.75rem;
+            border-bottom: 1px solid #334155;
+        }
+        th {
+            background-color: #0f172a;
+            font-weight: 600;
+            color: #94a3b8;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .match-row { background-color: rgba(16, 185, 129, 0.1); }
+        .mismatch-row { background-color: rgba(239, 68, 68, 0.1); }
+        .missing-row { background-color: rgba(245, 158, 11, 0.1); }
+        .app-type-group {
+            background-color: #0f172a;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            overflow: hidden;
+            border: 1px solid #334155;
+        }
+        .app-type-header {
+            background-color: #1e293b;
+            padding: 1rem 1.5rem;
+            font-size: 1.125rem;
+            font-weight: bold;
+            color: #f8fafc;
+            border-bottom: 1px solid #334155;
+            display: flex;
+            justify-content: space-between;
+        }
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .summary-table th, .summary-table td {
+            text-align: left;
+            padding: 0.75rem 1.5rem;
+            border-bottom: 1px solid #334155;
+        }
+        .summary-table th {
+            color: #94a3b8;
+            font-weight: 600;
+            background-color: rgba(0,0,0,0.2);
+            position: static;
+        }
+        .summary-table tr:last-child td { border-bottom: none; }
+        
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            font-size: 1.25rem;
+            color: #94a3b8;
+            display: none;
+        }
+        .stats {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+        .stat-box {
+            background-color: #0f172a;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            flex: 1;
+            text-align: center;
+            transition: background-color 0.2s, transform 0.1s;
+            min-width: 150px;
+        }
+        .stat-box.clickable { cursor: pointer; }
+        .stat-box.clickable:hover { background-color: #1e293b; }
+        .stat-box.clickable:active { transform: scale(0.98); }
+        .stat-box.active-filter { border: 2px solid #3b82f6; }
+        
+        .stat-value { font-size: 2rem; font-weight: bold; }
+        .color-success { color: var(--success); }
+        .color-error { color: var(--error); }
+        .color-warning { color: var(--warning); }
+        
+        #results, #summaryResults {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+        select {
+            background-color: #0f172a;
+            color: white;
+            border: 1px solid #334155;
+            padding: 0.5rem;
+            border-radius: 0.25rem;
+        }
+        .badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background-color: #334155;
+        }
+        .tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 0.5rem;
+        }
+        .tab {
+            cursor: pointer;
+            padding: 0.5rem 1rem;
+            color: #94a3b8;
+            font-weight: 600;
+        }
+        .tab.active {
+            color: var(--primary);
+            border-bottom: 2px solid var(--primary);
+        }
+        .view-section { display: none; }
+        .view-section.active { display: block; }
+    </style>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Data Comparison Explorer</h1>
+        <p>Compare records and statuses between JSON and Excel data</p>
+    </header>
+
+    <div class="card flex flex-col">
+        <div class="controls" style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 0.5rem; border: 1px dashed #334155;">
+            <div>
+                <label for="jsonUpload" style="display:block; margin-bottom:0.5rem; color:#94a3b8; font-size:0.875rem;">1. Upload JSON (Optional)</label>
+                <input type="file" id="jsonUpload" accept=".json" style="background:#0f172a; color:white; border:1px solid #334155; padding:0.5rem; border-radius:0.25rem;">
+            </div>
+            <div>
+                <label for="excelUpload" style="display:block; margin-bottom:0.5rem; color:#94a3b8; font-size:0.875rem;">2. Upload Excel (Optional)</label>
+                <input type="file" id="excelUpload" accept=".xlsx, .xls" style="background:#0f172a; color:white; border:1px solid #334155; padding:0.5rem; border-radius:0.25rem;">
+            </div>
+            <div style="display: flex; align-items: flex-end;">
+                <button class="btn" id="loadDataBtn" onclick="loadData()" style="padding: 0.6rem 1.5rem; height: 100%;">Load & Compare Data</button>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div>
+                <label for="jsonKey">JSON Key:</label>
+                <select id="jsonKey" onchange="performComparison()">
+                    <option value="registration_number">registration_number</option>
+                    <option value="uid">uid</option>
+                    <option value="name">name</option>
+                </select>
+            </div>
+            <div>
+                <label for="excelKey">Excel Column:</label>
+                <select id="excelKey" onchange="performComparison()">
+                    <!-- Populated dynamically -->
+                </select>
+            </div>
+            <div>
+                <label for="appTypeFilter">Application Type:</label>
+                <select id="appTypeFilter" onchange="applyFilters()">
+                    <option value="all">All Application Types</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="loading" class="loading">Loading files and processing...</div>
+
+        <div class="stats" id="stats" style="display: none;">
+            <div class="stat-box">
+                <div class="stat-value" id="totalJson">0</div>
+                <div>Total JSON</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="totalExcel">0</div>
+                <div>Total Excel</div>
+            </div>
+            <div class="stat-box clickable" id="box-matched" onclick="toggleStatusFilter('match')">
+                <div class="stat-value color-success" id="matchedCount">0</div>
+                <div>Matched</div>
+            </div>
+            <div class="stat-box clickable" id="box-missingExcel" onclick="toggleStatusFilter('missing')">
+                <div class="stat-value color-warning" id="missingExcelCount">0</div>
+                <div>Only in JSON</div>
+            </div>
+            <div class="stat-box clickable" id="box-missingJson" onclick="toggleStatusFilter('mismatch')">
+                <div class="stat-value color-error" id="missingJsonCount">0</div>
+                <div>Only in Excel</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card" id="resultsCard" style="display: none;">
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('detail')" id="tab-detail">Detail View</div>
+            <div class="tab" onclick="switchTab('summary')" id="tab-summary">Status Summary</div>
+            <div class="tab" onclick="switchTab('grouped')" id="tab-grouped">Grouped Summary (PBG/SLF)</div>
+        </div>
+
+        <div id="view-detail" class="view-section active">
+            <div id="results">
+                <table id="dataTable">
+                    <thead>
+                        <tr>
+                            <th>Match State</th>
+                            <th>Identifier (Key)</th>
+                            <th>JSON App Type</th>
+                            <th>JSON Status</th>
+                            <th>Excel App Type</th>
+                            <th>Excel Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <!-- Data here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="view-summary" class="view-section">
+            <div id="summaryResults">
+                <!-- Grouped summary will be injected here -->
+            </div>
+        </div>
+
+        <div id="view-grouped" class="view-section">
+            <div id="groupedResults">
+                <!-- PBG/SLF summary will be injected here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let jsonData = [];
+    let excelData = [];
+    let currentStatusFilter = 'all';
+
+    async function loadData() {
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('resultsCard').style.display = 'none';
+        document.getElementById('stats').style.display = 'none';
+        document.getElementById('loadDataBtn').disabled = true;
+
+        try {
+            // Load JSON File or Default
+            const jsonFileInput = document.getElementById('jsonUpload').files[0];
+            if (jsonFileInput) {
+                const text = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = e => resolve(e.target.result);
+                    reader.readAsText(jsonFileInput);
+                });
+                const json = JSON.parse(text);
+                jsonData = json.data || json;
+            } else {
+                const jsonRes = await fetch('json-pusat-2025.json');
+                if (jsonRes.ok) {
+                    const json = await jsonRes.json();
+                    jsonData = json.data || json;
+                } else {
+                    console.warn("No default JSON found.");
+                }
+            }
+
+            // Load Excel File or Default
+            const excelFileInput = document.getElementById('excelUpload').files[0];
+            let workbook;
+            if (excelFileInput) {
+                const arrayBuffer = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = e => resolve(e.target.result);
+                    reader.readAsArrayBuffer(excelFileInput);
+                });
+                workbook = XLSX.read(arrayBuffer, { type: 'array' });
+            } else {
+                const excelRes = await fetch('excel-pusat-2025.xlsx');
+                if (excelRes.ok) {
+                    const arrayBuffer = await excelRes.arrayBuffer();
+                    workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                } else {
+                    console.warn("No default Excel found.");
+                }
+            }
+
+            if (workbook) {
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                excelData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+            }
+
+            const excelKeySelect = document.getElementById('excelKey');
+            excelKeySelect.innerHTML = '';
+            if (excelData.length > 0) {
+                const keys = Object.keys(excelData[0]);
+                keys.forEach(key => {
+                    const option = document.createElement('option');
+                    option.value = key;
+                    option.textContent = key;
+                    if (key.toLowerCase().includes('regist') || key.toLowerCase().includes('nomor')) {
+                        option.selected = true;
+                    }
+                    excelKeySelect.appendChild(option);
+                });
+            }
+
+            performComparison();
+
+        } catch (error) {
+            console.error(error);
+            alert('Error loading files.');
+        } finally {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('loadDataBtn').disabled = false;
+        }
+    }
+
+    function getExcelAppType(row) {
+        if (!row) return '-';
+        const key = Object.keys(row).find(k => k.toLowerCase().includes('jenis permohonan'));
+        return key && row[key] ? row[key] : '-';
+    }
+
+    function normalizeStatus(val) {
+        if (!val) return '-';
+        const s = String(val).trim();
+        if (s.toLowerCase() === 'none' || s === '-' || s === '' || s.toLowerCase() === 'null') return '-';
+        return s;
+    }
+
+    function getExcelStatus(row) {
+        if (!row) return '- | -';
+        const keys = Object.keys(row);
+        
+        const statusKey1 = keys.find(k => k.toLowerCase() === 'status');
+        const statusKey2 = keys.find(k => k.toLowerCase().includes('status slf'));
+        
+        let s1 = '-';
+        let s2 = '-';
+
+        if (statusKey1 || statusKey2) {
+            if (statusKey1) s1 = normalizeStatus(row[statusKey1]);
+            if (statusKey2) s2 = normalizeStatus(row[statusKey2]);
+        } else {
+            const vals = Object.values(row);
+            s1 = normalizeStatus(vals[10]);
+            s2 = normalizeStatus(vals[11]);
+        }
+
+        return s1 + ' | ' + s2;
+    }
+
+    function getJsonAppType(item) {
+        return item.application_type_name || '-';
+    }
+
+    function getJsonStatus(item) {
+        const s1 = normalizeStatus(item.status_name);
+        const s2 = normalizeStatus(item.slf_status_name);
+        return s1 + ' | ' + s2;
+    }
+
+    function performComparison() {
+        if (!jsonData.length || !excelData.length) return;
+
+        const jsonKey = document.getElementById('jsonKey').value;
+        const excelKey = document.getElementById('excelKey').value;
+
+        let matched = 0, missingExcel = 0, missingJson = 0;
+        
+        const appTypesSet = new Set();
+        const summaryData = {
+            JSON: {},
+            Excel: {}
+        };
+
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = '';
+
+        const excelMap = new Map();
+        excelData.forEach(row => {
+            if (row[excelKey] !== undefined) {
+                excelMap.set(String(row[excelKey]).trim(), row);
+            }
+            // For summary
+            const aType = getExcelAppType(row);
+            const status = getExcelStatus(row);
+            appTypesSet.add(aType);
+            if (!summaryData.Excel[aType]) summaryData.Excel[aType] = {};
+            summaryData.Excel[aType][status] = (summaryData.Excel[aType][status] || 0) + 1;
+        });
+
+        const jsonMap = new Map();
+        const allRows = [];
+
+        // Process JSON Base
+        jsonData.forEach(item => {
+            const keyVal = String(item[jsonKey] || "").trim();
+            jsonMap.set(keyVal, item);
+
+            const jAppType = getJsonAppType(item);
+            const jStatus = getJsonStatus(item);
+            appTypesSet.add(jAppType);
+            
+            // For summary
+            if (!summaryData.JSON[jAppType]) summaryData.JSON[jAppType] = {};
+            summaryData.JSON[jAppType][jStatus] = (summaryData.JSON[jAppType][jStatus] || 0) + 1;
+
+            let rowData = {
+                appTypeVal: jAppType,
+                statusVal: jStatus,
+                className: '',
+                statusMismatch: false,
+                html: ''
+            };
+
+            if (excelMap.has(keyVal)) {
+                matched++;
+                const excelRow = excelMap.get(keyVal);
+                const eAppType = getExcelAppType(excelRow);
+                const eStatus = getExcelStatus(excelRow);
+                
+                rowData.className = 'match-row';
+                if (jStatus !== eStatus) rowData.statusMismatch = true;
+
+                rowData.html = `
+                    <td><span class="badge" style="background:#10b981">Matched</span></td>
+                    <td>${keyVal}</td>
+                    <td>${jAppType}</td>
+                    <td>${jStatus}</td>
+                    <td>${eAppType}</td>
+                    <td>${eStatus}</td>
+                `;
+            } else {
+                missingExcel++;
+                rowData.className = 'missing-row';
+                rowData.html = `
+                    <td><span class="badge" style="background:#f59e0b">Only in JSON</span></td>
+                    <td>${keyVal}</td>
+                    <td>${jAppType}</td>
+                    <td>${jStatus}</td>
+                    <td>-</td>
+                    <td>-</td>
+                `;
+            }
+            allRows.push(rowData);
+        });
+
+        // Check missing from JSON
+        excelData.forEach(row => {
+            const keyVal = String(row[excelKey] || "").trim();
+            if (!jsonMap.has(keyVal)) {
+                missingJson++;
+                const eAppType = getExcelAppType(row);
+                const eStatus = getExcelStatus(row);
+                
+                allRows.push({
+                    appTypeVal: eAppType,
+                    statusVal: eStatus,
+                    className: 'mismatch-row',
+                    statusMismatch: false,
+                    html: `
+                        <td><span class="badge" style="background:#ef4444">Only in Excel</span></td>
+                        <td>${keyVal}</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>${eAppType}</td>
+                        <td>${eStatus}</td>
+                    `
+                });
+            }
+        });
+
+        // Sort rows by App Type, then Status
+        allRows.sort((a, b) => {
+            const cmpApp = a.appTypeVal.localeCompare(b.appTypeVal);
+            if (cmpApp !== 0) return cmpApp;
+            return a.statusVal.localeCompare(b.statusVal);
+        });
+
+        // Append to table
+        allRows.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.className = row.className;
+            if (row.statusMismatch) tr.classList.add('status-mismatch');
+            tr.setAttribute('data-app-type', row.appTypeVal);
+            tr.innerHTML = row.html;
+            tbody.appendChild(tr);
+        });
+
+        // Populate filters
+        const filterSelect = document.getElementById('appTypeFilter');
+        filterSelect.innerHTML = '<option value="all">All Application Types</option>';
+        [...appTypesSet].sort().forEach(type => {
+            if(type !== '-') {
+                const opt = document.createElement('option');
+                opt.value = type;
+                opt.textContent = type;
+                filterSelect.appendChild(opt);
+            }
+        });
+
+        // Update Stats
+        document.getElementById('totalJson').textContent = jsonData.length;
+        document.getElementById('totalExcel').textContent = excelData.length;
+        document.getElementById('matchedCount').textContent = matched;
+        document.getElementById('missingExcelCount').textContent = missingExcel;
+        document.getElementById('missingJsonCount').textContent = missingJson;
+
+        document.getElementById('stats').style.display = 'flex';
+        document.getElementById('resultsCard').style.display = 'block';
+        
+        buildSummaryTable(summaryData);
+        buildGroupedSummaryTable(summaryData);
+        currentStatusFilter = 'all';
+        applyFilters();
+    }
+
+    function buildSummaryTable(summaryData) {
+        const container = document.getElementById('summaryResults');
+        container.innerHTML = '';
+        
+        // Get unique Application Types across JSON and Excel
+        const allAppTypes = new Set([
+            ...Object.keys(summaryData.JSON),
+            ...Object.keys(summaryData.Excel)
+        ]);
+
+        [...allAppTypes].sort().forEach(appType => {
+            // Get unique Statuses for this App Type
+            const jsonStatuses = summaryData.JSON[appType] || {};
+            const excelStatuses = summaryData.Excel[appType] || {};
+            const allStatuses = new Set([
+                ...Object.keys(jsonStatuses),
+                ...Object.keys(excelStatuses)
+            ]);
+            
+            if (allStatuses.size === 0) return;
+
+            // Total counts for the header
+            const totalJson = Object.values(jsonStatuses).reduce((a, b) => a + b, 0);
+            const totalExcel = Object.values(excelStatuses).reduce((a, b) => a + b, 0);
+
+            // Container for this App Type
+            const groupDiv = document.createElement('div');
+            groupDiv.className = 'app-type-group';
+
+            groupDiv.innerHTML = `
+                <div class="app-type-header">
+                    <span>${appType === '-' ? 'Unknown/Null' : appType}</span>
+                    <span style="font-size: 0.875rem; color: #94a3b8; font-weight: normal;">
+                        Total: JSON (${totalJson}) | Excel (${totalExcel})
+                    </span>
+                </div>
+                <table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 35%;">Status PBG</th>
+                            <th style="width: 25%;">Status SLF</th>
+                            <th style="width: 20%;">JSON Count</th>
+                            <th style="width: 20%;">Excel Count</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${[...allStatuses].sort().map(status => {
+                            const jCount = jsonStatuses[status] || 0;
+                            const eCount = excelStatuses[status] || 0;
+                            
+                            const parts = status.split(' | ');
+                            const stat1 = parts[0] || '-';
+                            const stat2 = parts[1] || '-';
+
+                            return `
+                                <tr>
+                                    <td>${stat1}</td>
+                                    <td>${stat2}</td>
+                                    <td style="${jCount > 0 ? (jCount === eCount ? 'color: #10b981;' : 'color: #3b82f6;') : 'color: #475569;'} font-weight: 600;">
+                                        ${jCount}
+                                    </td>
+                                    <td style="${eCount > 0 ? (eCount === jCount ? 'color: #10b981;' : 'color: #f59e0b;') : 'color: #475569;'} font-weight: 600;">
+                                        ${eCount}
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+            container.appendChild(groupDiv);
+        });
+    }
+
+    function buildGroupedSummaryTable(summaryData) {
+        const container = document.getElementById('groupedResults');
+        container.innerHTML = '';
+        
+        const groups = {
+            'PBG': { JSON: {}, Excel: {} },
+            'SLF': { JSON: {}, Excel: {} }
+        };
+
+        const allAppTypes = new Set([
+            ...Object.keys(summaryData.JSON),
+            ...Object.keys(summaryData.Excel)
+        ]);
+
+        allAppTypes.forEach(appType => {
+            const lowerType = appType.toLowerCase();
+            const isPBG = lowerType.includes('persetujuan bangunan gedung') || lowerType.includes('perubahan bangunan gedung');
+            const targetGroup = isPBG ? 'PBG' : 'SLF';
+
+            const jsonStatuses = summaryData.JSON[appType] || {};
+            Object.keys(jsonStatuses).forEach(status => {
+                groups[targetGroup].JSON[status] = (groups[targetGroup].JSON[status] || 0) + jsonStatuses[status];
+            });
+
+            const excelStatuses = summaryData.Excel[appType] || {};
+            Object.keys(excelStatuses).forEach(status => {
+                groups[targetGroup].Excel[status] = (groups[targetGroup].Excel[status] || 0) + excelStatuses[status];
+            });
+        });
+
+        Object.keys(groups).forEach(groupName => {
+            const jsonStats = groups[groupName].JSON;
+            const excelStats = groups[groupName].Excel;
+            const allStatuses = new Set([...Object.keys(jsonStats), ...Object.keys(excelStats)]);
+            
+            if (allStatuses.size === 0) return;
+
+            const totalJson = Object.values(jsonStats).reduce((a, b) => a + b, 0);
+            const totalExcel = Object.values(excelStats).reduce((a, b) => a + b, 0);
+
+            const groupDiv = document.createElement('div');
+            groupDiv.className = 'app-type-group';
+
+            groupDiv.innerHTML = `
+                <div class="app-type-header">
+                    <span>${groupName} (Merged Base)</span>
+                    <span style="font-size: 0.875rem; color: #94a3b8; font-weight: normal;">
+                        Total: JSON (${totalJson}) | Excel (${totalExcel})
+                    </span>
+                </div>
+                <table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 35%;">Status PBG</th>
+                            <th style="width: 25%;">Status SLF</th>
+                            <th style="width: 20%;">JSON Count</th>
+                            <th style="width: 20%;">Excel Count</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${[...allStatuses].sort().map(status => {
+                            const jCount = jsonStats[status] || 0;
+                            const eCount = excelStats[status] || 0;
+                            
+                            const parts = status.split(' | ');
+                            const stat1 = parts[0] || '-';
+                            const stat2 = parts[1] || '-';
+
+                            return `
+                                <tr>
+                                    <td>${stat1}</td>
+                                    <td>${stat2}</td>
+                                    <td style="${jCount > 0 ? (jCount === eCount ? 'color: #10b981;' : 'color: #3b82f6;') : 'color: #475569;'} font-weight: 600;">
+                                        ${jCount}
+                                    </td>
+                                    <td style="${eCount > 0 ? (eCount === jCount ? 'color: #10b981;' : 'color: #f59e0b;') : 'color: #475569;'} font-weight: 600;">
+                                        ${eCount}
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+            container.appendChild(groupDiv);
+        });
+    }
+
+    function toggleStatusFilter(type) {
+        if (currentStatusFilter === type) {
+            currentStatusFilter = 'all';
+        } else {
+            currentStatusFilter = type;
+        }
+        
+        document.getElementById('box-matched').classList.toggle('active-filter', currentStatusFilter === 'match');
+        document.getElementById('box-missingExcel').classList.toggle('active-filter', currentStatusFilter === 'missing');
+        document.getElementById('box-missingJson').classList.toggle('active-filter', currentStatusFilter === 'mismatch');
+
+        applyFilters();
+    }
+
+    function applyFilters() {
+        const appType = document.getElementById('appTypeFilter').value;
+        const rows = document.getElementById('tableBody').getElementsByTagName('tr');
+        
+        for (let row of rows) {
+            const rowAppType = row.getAttribute('data-app-type');
+            
+            let statusMatch = true;
+            if (currentStatusFilter !== 'all') {
+                if (currentStatusFilter === 'match' && !row.classList.contains('match-row')) statusMatch = false;
+                if (currentStatusFilter === 'missing' && !row.classList.contains('missing-row')) statusMatch = false;
+                if (currentStatusFilter === 'mismatch' && !row.classList.contains('mismatch-row')) statusMatch = false;
+            }
+
+            let typeMatch = true;
+            // Fuzzy match for Application Type because Excel/JSON strings might differ slightly
+            if (appType !== 'all') {
+                if (rowAppType !== appType) typeMatch = false;
+            }
+
+            row.style.display = (statusMatch && typeMatch) ? '' : 'none';
+        }
+    }
+
+    function switchTab(tabId) {
+        // Toggle tabs
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.getElementById('tab-' + tabId).classList.add('active');
+        
+        // Toggle views
+        document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+        document.getElementById('view-' + tabId).classList.add('active');
+    }
+</script>
+
+</body>
+</html>

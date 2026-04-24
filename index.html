@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Data PBG</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        .filter-container {
+            margin-bottom: 15px;
+        }
+
+        input, select {
+            padding: 6px;
+            margin-right: 10px;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            font-size: 13px;
+        }
+
+        th {
+            background-color: #f4f4f4;
+        }
+
+        tr:hover {
+            background-color: #f9f9f9;
+        }
+
+        button {
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 999;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background: #fff;
+            margin: 5% auto;
+            padding: 20px;
+            width: 70%;
+            max-height: 80%;
+            overflow-y: auto;
+            border-radius: 6px;
+        }
+
+        .close {
+            float: right;
+            cursor: pointer;
+            font-size: 18px;
+        }
+
+        .detail-row {
+            margin-bottom: 8px;
+        }
+
+        .label {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<p style="margin-bottom:12px;"><a href="rekap-lingkup.html">Rekap per Lingkup (status &amp; lingkup)</a></p>
+
+<h2>Data Persetujuan Bangunan Gedung</h2>
+
+<div class="filter-container">
+    <input type="text" id="searchInput" placeholder="Cari...">
+
+    <select id="officeFilter">
+        <option value="semua">Semua</option>
+        <option value="prov">Prov</option>
+        <option value="pusat">Pusat</option>
+        <option value="utara">Utara</option>
+        <option value="barat">Barat</option>
+        <option value="selatan">Selatan</option>
+        <option value="timur">Timur</option>
+        <option value="pulau">Pulau</option>
+    </select>
+
+    <select id="statusFilter">
+        <option value="">Semua Status</option>
+    </select>
+
+    <select id="typeFilter">
+        <option value="">Semua Application Type</option>
+    </select>
+
+    <select id="yearFilter" title="Berdasarkan start_date">
+        <option value="">Semua tahun</option>
+    </select>
+
+    <button id="downloadExcelBtn" type="button">Download Excel</button>
+</div>
+
+<table>
+    <thead>
+        <tr>
+            <th>No</th>
+            <th>No Registrasi</th>
+            <th>Nama</th>
+            <th>Owner</th>
+            <th>Application Type</th>
+            <th>Status</th>
+            <th>Aksi</th>
+        </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+</table>
+
+<!-- MODAL -->
+<div id="detailModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal()">✖</span>
+        <h3>Detail Data</h3>
+        <div id="detailContent"></div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+let rawData = [];
+let currentData = [];
+
+/** Tahun kalender dari start_date (YYYY-MM-DD atau format yang bisa di-parse Date). */
+function getItemStartYear(item) {
+    const sd = item && item.start_date;
+    if (sd == null || sd === '') return null;
+    if (typeof sd === 'string' && /^\d{4}/.test(sd)) {
+        const y = parseInt(sd.slice(0, 4), 10);
+        return Number.isFinite(y) ? y : null;
+    }
+    const t = Date.parse(sd);
+    if (Number.isNaN(t)) return null;
+    return new Date(t).getFullYear();
+}
+
+const officeToJsonFile = {
+    prov: '00. PROV.json',
+    pusat: '01. Pusat.json',
+    utara: '02. Utara.json',
+    barat: '03. Barat.json',
+    selatan: '04. Selatan.json',
+    timur: '05. Timur.json',
+    pulau: '06. Pulau.json'
+};
+
+async function loadAllData() {
+    const fileNames = Object.values(officeToJsonFile);
+    const results = await Promise.all(
+        fileNames.map(async (fileName) => {
+            const res = await fetch(fileName);
+            const json = await res.json();
+            return Array.isArray(json.data) ? json.data : [];
+        })
+    );
+
+    rawData = results.flat();
+    currentData = rawData;
+
+    // reset UI state ketika ganti office
+    document.getElementById('searchInput').value = '';
+    initFilters();
+    applyFilter();
+}
+
+async function loadDataByOffice(officeKey) {
+    if (officeKey === 'semua') {
+        await loadAllData();
+        return;
+    }
+
+    const fileName = officeToJsonFile[officeKey] || officeToJsonFile.prov;
+    const res = await fetch(fileName);
+    const json = await res.json();
+
+    rawData = Array.isArray(json.data) ? json.data : [];
+    currentData = rawData;
+
+    // reset UI state ketika ganti office
+    document.getElementById('searchInput').value = '';
+    initFilters();
+    applyFilter();
+}
+
+function initFilters() {
+    const statusFilterEl = document.getElementById('statusFilter');
+    const typeFilterEl = document.getElementById('typeFilter');
+    const yearFilterEl = document.getElementById('yearFilter');
+
+    statusFilterEl.innerHTML = '<option value="">Semua Status</option>';
+    typeFilterEl.innerHTML = '<option value="">Semua Application Type</option>';
+
+    const statusSet = [...new Set(rawData.map(d => d.status_name).filter(Boolean))];
+    const typeSet = [...new Set(rawData.map(d => d.application_type_name).filter(Boolean))];
+
+    statusSet.forEach(status => {
+        statusFilterEl.innerHTML += `<option value="${status}">${status}</option>`;
+    });
+
+    typeSet.forEach(type => {
+        typeFilterEl.innerHTML += `<option value="${type}">${type}</option>`;
+    });
+
+    const prevYear = yearFilterEl.value;
+    const years = [...new Set(rawData.map(getItemStartYear).filter((y) => y != null))].sort((a, b) => b - a);
+    yearFilterEl.innerHTML = '<option value="">Semua tahun</option>';
+    years.forEach((y) => {
+        yearFilterEl.innerHTML += `<option value="${y}">${y}</option>`;
+    });
+    if (prevYear && years.includes(Number(prevYear))) {
+        yearFilterEl.value = prevYear;
+    } else {
+        yearFilterEl.value = '';
+    }
+}
+
+function renderTable(data) {
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '';
+    updateDownloadButtonState(data);
+
+    data.forEach((item, index) => {
+        const tr = document.createElement('tr');
+
+        tr.innerHTML = `
+            <td>${index + 1}</td>
+            <td>${item.registration_number}</td>
+            <td>${item.name || '-'}</td>
+            <td>${item.owner_name}</td>
+            <td>${item.application_type_name}</td>
+            <td>${item.status_name}</td>
+            <td><button onclick='showDetail(${JSON.stringify(item)})'>Detail</button></td>
+        `;
+
+        tbody.appendChild(tr);
+    });
+}
+
+function updateDownloadButtonState(data) {
+    const btn = document.getElementById('downloadExcelBtn');
+    const hasData = Array.isArray(data) && data.length > 0;
+    btn.disabled = !hasData;
+    btn.title = hasData ? '' : 'Tidak ada data untuk diunduh';
+}
+
+function getExcelFileName() {
+    const office = document.getElementById('officeFilter').value || 'semua';
+    const year = document.getElementById('yearFilter').value;
+    const yearPart = year ? `_thn${year}` : '';
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const ts = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+    return `data-pbg_${office}${yearPart}_${ts}.xlsx`;
+}
+
+function exportCurrentToExcel() {
+    if (!window.XLSX) {
+        alert('Library Excel (xlsx) belum termuat. Coba refresh halaman.');
+        return;
+    }
+
+    const data = Array.isArray(currentData) ? currentData : [];
+    if (data.length === 0) return;
+
+    const worksheet = XLSX.utils.json_to_sheet(data, { skipHeader: false });
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Data');
+    XLSX.writeFile(workbook, getExcelFileName());
+}
+
+function formatValue(val) {
+    if (val === null) return '-';
+    if (val === true) return 'Ya';
+    if (val === false) return 'Tidak';
+    return val;
+}
+
+function showDetail(item) {
+    const container = document.getElementById('detailContent');
+    container.innerHTML = '';
+
+    Object.keys(item).forEach(key => {
+        container.innerHTML += `
+            <div class="detail-row">
+                <span class="label">${key}</span>: ${formatValue(item[key])}
+            </div>
+        `;
+    });
+
+    document.getElementById('detailModal').style.display = 'block';
+}
+
+function closeModal() {
+    document.getElementById('detailModal').style.display = 'none';
+}
+
+function applyFilter() {
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    const status = document.getElementById('statusFilter').value;
+    const type = document.getElementById('typeFilter').value;
+    const yearVal = document.getElementById('yearFilter').value;
+    const yearNum = yearVal ? Number(yearVal) : null;
+
+    const filtered = rawData.filter(item => {
+        const matchSearch =
+            (item.name || '').toLowerCase().includes(search) ||
+            item.owner_name.toLowerCase().includes(search) ||
+            item.registration_number.toLowerCase().includes(search);
+
+        const matchStatus = !status || item.status_name === status;
+        const matchType = !type || item.application_type_name === type;
+        const itemYear = getItemStartYear(item);
+        const matchYear =
+            yearNum == null || (itemYear != null && itemYear === yearNum);
+
+        return matchSearch && matchStatus && matchType && matchYear;
+    });
+
+    currentData = filtered;
+    renderTable(currentData);
+}
+
+document.getElementById('searchInput').addEventListener('input', applyFilter);
+document.getElementById('statusFilter').addEventListener('change', applyFilter);
+document.getElementById('typeFilter').addEventListener('change', applyFilter);
+document.getElementById('yearFilter').addEventListener('change', applyFilter);
+document.getElementById('officeFilter').addEventListener('change', (e) => {
+    loadDataByOffice(e.target.value);
+});
+document.getElementById('downloadExcelBtn').addEventListener('click', exportCurrentToExcel);
+
+window.onclick = function(e) {
+    if (e.target === document.getElementById('detailModal')) {
+        closeModal();
+    }
+}
+
+// default load: semua
+loadDataByOffice(document.getElementById('officeFilter').value);
+</script>
+
+</body>
+</html>
